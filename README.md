@@ -49,7 +49,7 @@ await client.SendRequestAsync("AddNumbers", 5, 10);
 ```
 
 ### What happens when theres an exception on the remote side?
-When an exception occurs, some general data about it is sent back to the caller. On the caller end a `RemoteExecutionException` is thrown (it might be wrapped in several `AggregateException`s though). `RemoteExceptionTypeName`, `RemoteExceptionMessage` and `RemoteExceptionStack` 
+When an exception occurs, some general data about it is sent back to the caller. On the caller end a `RemoteExecutionException` is thrown (it might be wrapped in several `AggregateException`s though). `RemoteExceptionTypeName`, `RemoteExceptionMessage` and `RemoteExceptionStack` contain the important information. 
 
 ## Full example
 ```csharp
