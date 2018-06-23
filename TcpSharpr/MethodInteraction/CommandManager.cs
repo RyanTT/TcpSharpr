@@ -6,7 +6,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 using TcpSharpr.Network;
 
-namespace TcpSharpr.Methodshorteraction {
+namespace TcpSharpr.MethodInteraction {
     public class CommandManager {
         protected List<Command> _registeredCommands;
 

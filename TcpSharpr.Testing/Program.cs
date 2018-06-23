@@ -46,8 +46,7 @@ namespace TcpSharpr.Testing {
         }
 
         public static async Task<string> DownloadHtml(string url) {
-            WebClient webClient = new WebClient();
-            return await webClient.DownloadStringTaskAsync(url);
+            return await new WebClient().DownloadStringTaskAsync(url);
         }
     }
 }

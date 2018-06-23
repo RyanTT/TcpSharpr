@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using TcpSharpr.Methodshorteraction;
+using TcpSharpr.MethodInteraction;
 using TcpSharpr.Network.Protocol.RemoteExceptions;
 
 namespace TcpSharpr.Network.Protocol {
