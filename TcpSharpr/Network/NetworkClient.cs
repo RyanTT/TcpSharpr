@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -63,12 +64,8 @@ namespace TcpSharpr.Network {
                         throw new SocketException();
                     }
 
-                    // Copy actually received bytes
-                    byte[] receivedData = new byte[bytesReceived];
-                    Array.Copy(receiveBuffer, receivedData, bytesReceived);
-
                     // Add received bytes to total buffer
-                    totalReceiveBuffer.AddRange(receivedData);
+                    totalReceiveBuffer.AddRange(receiveBuffer.Take(bytesReceived));
 
                     byte[][] receivedPackets = _packetFormatter.TryReadPackets(totalReceiveBuffer);
 
