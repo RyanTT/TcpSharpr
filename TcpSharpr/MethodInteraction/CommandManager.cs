@@ -30,7 +30,7 @@ namespace TcpSharpr.MethodInteraction {
             return this;
         }
 
-        public async Task<object> InvokeCommand(string commandName, object[] arguments) {
+        public async Task<object> InvokeCommand(NetworkClient context, string commandName, object[] arguments) {
             Command targetCommand = null;
 
             lock (_registeredCommands) {
@@ -46,8 +46,25 @@ namespace TcpSharpr.MethodInteraction {
                 throw new KeyNotFoundException("<commandName> is not a registered command.");
             }
 
+            // Build parameter list
+            var parameters = new List<object>();
+            var givenParameters = new Queue<object>(arguments);
+            var parameterInfos = targetCommand.Delegate.Method.GetParameters();
+
+            foreach (var expectedParameter in parameterInfos) {
+                if (expectedParameter.ParameterType == typeof(NetworkClient)) {
+                    parameters.Add(context);
+                } else {
+                    if (parameters.Count == 0) {
+                        throw new ArgumentException("The specificed command has a different signature than the given arguments suggest.");
+                    }
+
+                    parameters.Add(givenParameters.Dequeue());
+                }
+            }
+
             if (targetCommand.IsAsync) {
-                Task executionTask = targetCommand.Delegate.DynamicInvoke(arguments) as Task;
+                Task executionTask = targetCommand.Delegate.DynamicInvoke(parameters.ToArray()) as Task;
 
                 // Await task
                 await executionTask;
@@ -55,7 +72,7 @@ namespace TcpSharpr.MethodInteraction {
                 // Return result. If the async method has void as the return type, null will be returned instead.
                 return executionTask.GetType().GetProperty("Result").GetValue(executionTask);
             } else {
-                object resultValue = targetCommand.Delegate.DynamicInvoke(arguments);
+                object resultValue = targetCommand.Delegate.DynamicInvoke(parameters.ToArray());
                 return resultValue;
             }
         }

@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using TcpSharpr.MethodInteraction;
 using TcpSharpr.Network;
+using TcpSharpr.Network.Events;
 using TcpSharpr.Threading;
 
 namespace TcpSharpr {
@@ -13,6 +14,8 @@ namespace TcpSharpr {
         public IPEndPoint ListeningIpEndposhort { get; private set; }
         public CommandManager CommandManager { get; private set; }
         public NetworkClient[] ConnectedClients { get { return _connectedClients.ToArray(); } }
+        public EventHandler<ClientConnectedEventArgs> OnClientConnected;
+        public EventHandler<ClientDisconnectedEventArgs> OnClientDisconnected;
 
         private CancellationTokenSource _serverStopTokenSource;
         private Socket _listeningSocket;
@@ -55,12 +58,16 @@ namespace TcpSharpr {
             lock (_connectedClients) {
                 _connectedClients.Add(sender as NetworkClient);
             }
+
+            OnClientConnected?.Invoke(this, new ClientConnectedEventArgs(sender as NetworkClient));
         }
 
         private void NetworkClient_OnDisconnected(object sender, Network.Events.DisconnectedEventArgs e) {
             lock (_connectedClients) {
                 _connectedClients.Remove(sender as NetworkClient);
             }
+
+            OnClientDisconnected?.Invoke(this, new ClientDisconnectedEventArgs(sender as NetworkClient));
         }
 
         public void Stop() {

@@ -38,7 +38,7 @@ namespace TcpSharpr.Network.Protocol {
         #region Message Handling
         public async Task FromNetworkHandleAction(NetworkPacket networkPacket) {
             try {
-                await _commandManager.InvokeCommand(networkPacket.CommandName, networkPacket.CommandParameters);
+                await _commandManager.InvokeCommand(_networkClient, networkPacket.CommandName, networkPacket.CommandParameters);
             } catch (Exception ex) {
                 await SendNetworkMessageRemoteException(networkPacket.NetworkId, RemoteExecutionExceptionNetworkModel.FromException(ex));
             }
@@ -46,7 +46,7 @@ namespace TcpSharpr.Network.Protocol {
 
         public async Task FromNetworkHandleRequest(NetworkPacket networkPacket) {
             try {
-                var result = await _commandManager.InvokeCommand(networkPacket.CommandName, networkPacket.CommandParameters);
+                var result = await _commandManager.InvokeCommand(_networkClient, networkPacket.CommandName, networkPacket.CommandParameters);
                 await SendNetworkMessageResponse(networkPacket.NetworkId, result);
             } catch (Exception ex) {
                 await SendNetworkMessageRemoteException(networkPacket.NetworkId, RemoteExecutionExceptionNetworkModel.FromException(ex));

@@ -41,7 +41,7 @@ namespace TcpSharpr.Network {
 
                 while (!_parentStopTokenSource.IsCancellationRequested) {
                     byte[] receiveBuffer = new byte[RECEIVE_BUFFER_SIZE];
-                    int bytesReceived = await _socket.ReceiveAsync(receiveBuffer, SocketFlags.None).WithCancellation(_parentStopTokenSource.Token);
+                    int bytesReceived = await _socket.ReceiveAsync(new ArraySegment<byte>(receiveBuffer), SocketFlags.None).WithCancellation(_parentStopTokenSource.Token);
 
                     if (bytesReceived == 0) {
                         throw new SocketException();
@@ -85,7 +85,7 @@ namespace TcpSharpr.Network {
             packet = _packetFormatter.PreparePacketForNetwork(packet);
 
             // Send
-            await _socket.SendAsync(packet, SocketFlags.None);
+            await _socket.SendAsync(new ArraySegment<byte>(packet), SocketFlags.None);
         }
 
         internal async Task OnShutdown() {
