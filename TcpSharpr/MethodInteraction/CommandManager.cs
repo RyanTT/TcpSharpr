@@ -55,7 +55,7 @@ namespace TcpSharpr.MethodInteraction {
                 if (expectedParameter.ParameterType == typeof(NetworkClient)) {
                     parameters.Add(context);
                 } else {
-                    if (parameters.Count == 0) {
+                    if (givenParameters.Count == 0) {
                         throw new ArgumentException("The specificed command has a different signature than the given arguments suggest.");
                     }
 

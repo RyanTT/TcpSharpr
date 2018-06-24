@@ -46,6 +46,8 @@ namespace TcpSharpr {
                     Socket acceptedSocket = await _listeningSocket.AcceptAsync().WithCancellation(_serverStopTokenSource.Token);
                     NetworkClient networkClient = new NetworkClient(acceptedSocket, _serverStopTokenSource, CommandManager);
 
+                    networkClient.RunsAt(this);
+
                     networkClient.OnConnected += NetworkClient_OnConnected;
                     networkClient.OnDisconnected += NetworkClient_OnDisconnected;
 

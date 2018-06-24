@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,10 +19,17 @@ namespace TcpSharpr.Network {
         protected MessageManager _messageManager;
         protected CommandManager _commandManager;
         protected IMessageSerializer _messageSerializer;
+        protected Server _parent;
 
         public event EventHandler<Events.ConnectedEventArgs> OnConnected;
         public event EventHandler<Events.DisconnectedEventArgs> OnDisconnected;
-        
+
+        public EndPoint Endpoint {
+            get {
+                return _socket.RemoteEndPoint;
+            }
+        }
+
         public NetworkClient(Socket socket, CancellationTokenSource stopTokenSource, CommandManager commandManager) {
             _socket = socket;
             _parentStopTokenSource = stopTokenSource;
@@ -31,6 +39,14 @@ namespace TcpSharpr.Network {
             _commandManager = commandManager;
             _messageManager = new MessageManager(_commandManager, this);
             _messageSerializer = new BinaryFormatterSerializer();
+        }
+
+        internal void RunsAt(Server server) {
+            _parent = server;
+        }
+
+        public Server GetParent() {
+            return _parent;
         }
 
         public async Task ReceiveAsync() {
