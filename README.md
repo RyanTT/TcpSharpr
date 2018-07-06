@@ -97,6 +97,7 @@ If you want to see how far you are through the Stream, use the `SegmentedNetwork
 
 **Note** Returning a Stream from a command method is also supported. In this case you get the Stream the same way like this `var responseStream = await request.GetResultAsync<SegmentedNetworkStream>();`
 
+***Sending or receiving Streams inside a parameter object is not supported!***
 
 ## Full example
 ```csharp
