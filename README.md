@@ -94,6 +94,7 @@ private static async Task StreamTransmission(SegmentedNetworkStream segmentedNet
 If you want to see how far you are through the Stream, use the `SegmentedNetworkStream.PromisedLength` property. It's value will be set before the very first transmission of that Stream.
 
 **Note** If you transmit more than one Stream as a parameter, the Streams will be transmitted in order.
+
 **Note** Returning a Stream from a command method is also supported. In this case you get the Stream the same way like this `var responseStream = await request.GetResultAsync<SegmentedNetworkStream>();`
 
 
