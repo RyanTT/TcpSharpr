@@ -66,7 +66,7 @@ Now that we have the command registered, let's send a file from our PC to that c
 
 ```csharp
 FileStream fileStream = new FileStream(@"C:\Users\timet\Desktop\dotnet-sdk-2.1.201-win-x64.exe", FileMode.Open);
-var request = await client.SendRequestAsync("StreamTransmission", fileStream);
+var request = await client.SendAsync("StreamTransmission", fileStream);
 ```
 
 This will start reading from the `FileStream` until the end and sending the chunks to the other party's `SegmentedNetworkStream`.
