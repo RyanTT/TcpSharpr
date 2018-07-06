@@ -30,7 +30,7 @@ namespace TcpSharpr.MethodInteraction {
             return this;
         }
 
-        public async Task<object> InvokeCommand(NetworkClient context, string commandName, object[] arguments) {
+        public async Task<object> InvokeCommand(NetworkClient context, string commandName, object[] arguments, bool waitForReturn) {
             Command targetCommand = null;
 
             lock (_registeredCommands) {
@@ -66,11 +66,23 @@ namespace TcpSharpr.MethodInteraction {
             if (targetCommand.IsAsync) {
                 Task executionTask = targetCommand.Delegate.DynamicInvoke(parameters.ToArray()) as Task;
 
-                // Await task
-                await executionTask;
+                if (waitForReturn) {
+                    if (executionTask.IsFaulted) {
+                        throw new Exception("The invoked async delegate produced a faulted task.");
+                    }
 
-                // Return result. If the async method has void as the return type, null will be returned instead.
-                return executionTask.GetType().GetProperty("Result").GetValue(executionTask);
+                    // Await task
+                    await executionTask;
+
+                    // Return result. If the async method has void as the return type, null will be returned instead.
+                    var returnValue = executionTask.GetType().GetProperty("Result").GetValue(executionTask);
+
+                    if (targetCommand.Delegate.Method.ReturnType != typeof(Task)) {
+                        return returnValue;
+                    }
+                }
+
+                return null;
             } else {
                 object resultValue = targetCommand.Delegate.DynamicInvoke(parameters.ToArray());
                 return resultValue;

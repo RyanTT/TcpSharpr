@@ -15,6 +15,7 @@ namespace TcpSharpr.Network {
 
         public override void Cancel() {
             _responseReceivedEvent.Cancel();
+            base.Cancel();
         }
 
         public async Task<T> GetResultAsync<T>(int timeout) {

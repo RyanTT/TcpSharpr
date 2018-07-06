@@ -1,20 +1,33 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using TcpSharpr.MethodInteraction;
+using TcpSharpr.Network.Protocol.Handlers;
 using TcpSharpr.Network.Protocol.RemoteExceptions;
 
 namespace TcpSharpr.Network.Protocol {
     public class MessageManager {
         private static readonly Random _randomIdGenerator = new Random();
-        private CommandManager _commandManager;
         private NetworkClient _networkClient;
-        private List<NetworkMessage> _trackedSentMessages;
+        private NetworkStreamTransmissionHandler _networkStreamTransmissionHandler;
+        private ConcurrentBag<NetworkMessage> _trackedSentMessages;
+
+        public CommandManager CommandManager { get; private set; }
 
         public MessageManager(CommandManager commandManager, NetworkClient networkClient) {
             _networkClient = networkClient;
-            _commandManager = commandManager;
-            _trackedSentMessages = new List<NetworkMessage>();
+            CommandManager = commandManager;
+            _trackedSentMessages = new ConcurrentBag<NetworkMessage>();
+            _networkStreamTransmissionHandler = new NetworkStreamTransmissionHandler(networkClient, this);
+        }
+
+        public NetworkMessage GetTrackedNetworkMessage(short id) {
+            lock (_trackedSentMessages) {
+                return _trackedSentMessages.Where(x => x.NetworkId == id).FirstOrDefault();
+            }
         }
 
         public async Task OnNetworkMessage(NetworkPacket networkMessage) {
@@ -38,7 +51,7 @@ namespace TcpSharpr.Network.Protocol {
         #region Message Handling
         public async Task FromNetworkHandleAction(NetworkPacket networkPacket) {
             try {
-                await _commandManager.InvokeCommand(_networkClient, networkPacket.CommandName, networkPacket.CommandParameters);
+                await CommandManager.InvokeCommand(_networkClient, networkPacket.CommandName, networkPacket.CommandParameters, false);
             } catch (Exception ex) {
                 await SendNetworkMessageRemoteException(networkPacket.NetworkId, RemoteExecutionExceptionNetworkModel.FromException(ex));
             }
@@ -46,7 +59,7 @@ namespace TcpSharpr.Network.Protocol {
 
         public async Task FromNetworkHandleRequest(NetworkPacket networkPacket) {
             try {
-                var result = await _commandManager.InvokeCommand(_networkClient, networkPacket.CommandName, networkPacket.CommandParameters);
+                var result = await CommandManager.InvokeCommand(_networkClient, networkPacket.CommandName, networkPacket.CommandParameters, true);
                 await SendNetworkMessageResponse(networkPacket.NetworkId, result);
             } catch (Exception ex) {
                 await SendNetworkMessageRemoteException(networkPacket.NetworkId, RemoteExecutionExceptionNetworkModel.FromException(ex));
@@ -73,6 +86,7 @@ namespace TcpSharpr.Network.Protocol {
                     foreach (var trackedMessage in _trackedSentMessages) {
                         if (trackedMessage.NetworkId == networkPacket.NetworkId) {
                             trackedMessage.SetStatus(NetworkMessage.NetworkMessageStatus.Acknowledged);
+                            break;
                         }
                     }
                 }
@@ -100,7 +114,7 @@ namespace TcpSharpr.Network.Protocol {
         #endregion
 
         #region Message Sending
-        public async Task<NetworkPacket> SendNetworkMessageWithId(short networkId, NetworkPacket.Type packetType, bool requiresAcknowledgement, string command, params object[] parameters) {
+        public PreparedNetworkMessage PrepareNetworkMessageWithId(short networkId, NetworkPacket.Type packetType, bool requiresAcknowledgement, string command, params object[] parameters) {
             var networkPacket = new NetworkPacket {
                 NetworkId = networkId,
                 CommandName = command,
@@ -108,50 +122,63 @@ namespace TcpSharpr.Network.Protocol {
                 RequiresAcknowledgement = requiresAcknowledgement,
                 PacketType = packetType
             };
-
-            await _networkClient.SendInternalAsync(networkPacket);
-            return networkPacket;
+            
+            return new PreparedNetworkMessage(_networkClient, networkPacket, _networkStreamTransmissionHandler);
         }
 
-        public async Task<NetworkPacket> SendNetworkMessage(NetworkPacket.Type packetType, bool requiresAcknowledgement, string command, params object[] parameters) {
-            return await SendNetworkMessageWithId((short)_randomIdGenerator.Next(), packetType, requiresAcknowledgement, command, parameters);
+        public PreparedNetworkMessage PrepareNetworkMessage(NetworkPacket.Type packetType, bool requiresAcknowledgement, string command, params object[] parameters) {
+            short generatedId = 0;
+
+            while (true) {
+                generatedId = (short)_randomIdGenerator.Next(short.MinValue, short.MaxValue);
+
+                lock (_trackedSentMessages) {
+                    if (_trackedSentMessages.Where(x => x.NetworkId == generatedId).Count() == 0) {
+                        break;
+                    }
+                }
+            }
+
+            return PrepareNetworkMessageWithId(generatedId, packetType, requiresAcknowledgement, command, parameters);
         }
 
         public async Task<NetworkMessage> SendNetworkMessageRemoteException(short networkId, RemoteExecutionExceptionNetworkModel exceptionModel) {
-            var networkPacket = await SendNetworkMessageWithId(networkId, NetworkPacket.Type.RemoteException, false, "", exceptionModel);
-            return new NetworkMessage(networkPacket.NetworkId, networkPacket.CommandName, networkPacket.CommandParameters);
+            var preparedNetworkMessage = await PrepareNetworkMessageWithId(networkId, NetworkPacket.Type.RemoteException, false, "", exceptionModel).Send();
+            return preparedNetworkMessage.NetworkMessage;
         }
 
         public async Task<NetworkMessage> SendNetworkMessageAcknowledgement(short networkId) {
-            var networkPacket = await SendNetworkMessageWithId(networkId, NetworkPacket.Type.PackageAcknowledged, false, "");
-            return new NetworkMessage(networkPacket.NetworkId, networkPacket.CommandName, networkPacket.CommandParameters);
+            var preparedNetworkMessage = await PrepareNetworkMessageWithId(networkId, NetworkPacket.Type.PackageAcknowledged, false, "").Send();
+            return preparedNetworkMessage.NetworkMessage;
         }
 
         public async Task<NetworkMessage> SendNetworkMessageResponse(short networkId, object response) {
-            var networkPacket = await SendNetworkMessageWithId(networkId, NetworkPacket.Type.Response, true, "", response);
-            return new NetworkMessage(networkPacket.NetworkId, networkPacket.CommandName, new object[] { response });
+            var preparedNetworkMessage = await PrepareNetworkMessageWithId(networkId, NetworkPacket.Type.Response, true, "", response).Send();
+            return preparedNetworkMessage.NetworkMessage;
         }
 
         public async Task<NetworkMessage> SendNetworkMessageAction(string command, params object[] parameters) {
-            var networkPacket = await SendNetworkMessage(NetworkPacket.Type.Action, true, command, parameters);
-            var networkMessage = new NetworkMessage(networkPacket.NetworkId, networkPacket.CommandName, networkPacket.CommandParameters);
+            var preparedNetworkMessage = PrepareNetworkMessage(NetworkPacket.Type.Action, true, command, parameters);
 
             lock (_trackedSentMessages) {
-                _trackedSentMessages.Add(networkMessage);
+                _trackedSentMessages.Add(preparedNetworkMessage.NetworkMessage);
             }
 
-            return networkMessage;
+            await preparedNetworkMessage.Send();
+
+            return preparedNetworkMessage.NetworkMessage;
         }
 
         public async Task<NetworkRequest> SendNetworkMessageRequest(string command, params object[] parameters) {
-            var networkPacket = await SendNetworkMessage(NetworkPacket.Type.Request, true, command, parameters);
-            var networkMessage = new NetworkRequest(networkPacket.NetworkId, networkPacket.CommandName, networkPacket.CommandParameters);
+            var preparedNetworkMessage = PrepareNetworkMessage(NetworkPacket.Type.Request, true, command, parameters);
 
             lock (_trackedSentMessages) {
-                _trackedSentMessages.Add(networkMessage);
+                _trackedSentMessages.Add(preparedNetworkMessage.NetworkMessage);
             }
 
-            return networkMessage;
+            await preparedNetworkMessage.Send();
+
+            return preparedNetworkMessage.NetworkMessage as NetworkRequest;
         }
         #endregion
 
@@ -163,6 +190,34 @@ namespace TcpSharpr.Network.Protocol {
             }
 
             await Task.CompletedTask;
+        }
+
+        public class PreparedNetworkMessage {
+            public NetworkClient NetworkClient { get; private set; }
+            public NetworkPacket NetworkPacket { get; private set; }
+            public NetworkStreamTransmissionHandler NetworkSth { get; private set; }
+            public NetworkMessage NetworkMessage { get; private set; }
+
+            public PreparedNetworkMessage(NetworkClient networkClient, NetworkPacket networkPacket, NetworkStreamTransmissionHandler networkStreamTransmissionHandler) {
+                NetworkClient = networkClient;
+                NetworkPacket = networkPacket;
+                NetworkSth = networkStreamTransmissionHandler;
+                NetworkMessage = networkPacket.PacketType == NetworkPacket.Type.Request ?
+                    new NetworkRequest(NetworkPacket.NetworkId, NetworkPacket.CommandName, NetworkPacket.CommandParameters) :
+                    new NetworkMessage(NetworkPacket.NetworkId, NetworkPacket.CommandName, NetworkPacket.CommandParameters);
+            }
+
+            public async Task<PreparedNetworkMessage> Send() {
+                // Is there any Stream that needs to be transmitted in chunks?
+                if (NetworkPacket.CommandParameters.Count(x => typeof(Stream).IsAssignableFrom(x?.GetType())) > 0) {
+                    var sendStreamTask = NetworkSth.OnNetworkMessageSend(this);
+                    return this;
+                }
+
+                // Send it as one packet
+                await NetworkClient.SendInternalAsync(NetworkPacket);
+                return this;
+            }
         }
     }
 }

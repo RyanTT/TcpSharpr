@@ -9,13 +9,13 @@ namespace TcpSharpr.Network.Protocol {
 
             while (buffer.Count > 2) {
                 try {
-                    short packetBodyLength = BitConverter.ToInt16(buffer.Take(2).ToArray(), 0);
+                    int packetBodyLength = BitConverter.ToInt32(buffer.Take(4).ToArray(), 0);
 
                     if (buffer.Count - 2 >= packetBodyLength) {
-                        byte[] packetBody = buffer.Skip(2).Take(packetBodyLength).ToArray();
+                        byte[] packetBody = buffer.Skip(4).Take(packetBodyLength).ToArray();
 
                         readPackets.Add(packetBody);
-                        buffer.RemoveRange(0, 2 + packetBodyLength);
+                        buffer.RemoveRange(0, 4 + packetBodyLength);
                     } else {
                         break;
                     }
@@ -28,7 +28,7 @@ namespace TcpSharpr.Network.Protocol {
         }
 
         public byte[] PreparePacketForNetwork(byte[] buffer) {
-            short packetLength = (short)buffer.Length;
+            int packetLength = buffer.Length;
 
             List<byte> packet = new List<byte>();
             packet.AddRange(BitConverter.GetBytes(packetLength));

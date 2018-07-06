@@ -34,6 +34,10 @@ namespace TcpSharpr.Testing {
 
             Console.WriteLine(">> Html Result:" + Environment.NewLine + await htmlRequest.GetResultAsync<string>());
 
+            server.Stop();
+            client.Disconnect();
+
+            Console.WriteLine("Complete. ENTER to exit.");
             Console.ReadLine();
         }
 

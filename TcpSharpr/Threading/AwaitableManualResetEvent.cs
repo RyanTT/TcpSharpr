@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -6,43 +7,65 @@ using System.Threading.Tasks;
 namespace TcpSharpr.Threading {
     public class AwaitableManualResetEvent {
         protected static readonly Task<bool> _completedTask = Task.FromResult(true);
-        protected readonly Queue<TaskCompletionSource<bool>> _taskCompletionSources = new Queue<TaskCompletionSource<bool>>();
+        protected readonly ConcurrentQueue<TaskCompletionSource<bool>> _taskCompletionSources = new ConcurrentQueue<TaskCompletionSource<bool>>();
         protected bool _signaled = false;
 
         public Task<bool> WaitAsync() {
-            lock (_taskCompletionSources) {
-                if (_signaled) {
-                    return _completedTask;
-                }
-
-                var newTaskCompletionSource = new TaskCompletionSource<bool>();
-                _taskCompletionSources.Enqueue(newTaskCompletionSource);
-                return newTaskCompletionSource.Task;
+            if (_signaled) {
+                return _completedTask;
             }
+
+            var newTaskCompletionSource = new TaskCompletionSource<bool>();
+            _taskCompletionSources.Enqueue(newTaskCompletionSource);
+
+            if (_signaled) {
+                newTaskCompletionSource.SetResult(true);
+            }
+
+            return newTaskCompletionSource.Task;
         }
 
-        public void Set() {
-            lock (_taskCompletionSources) {
+        public void Set(bool andReset = false) {
+            if (!andReset) {
                 _signaled = true;
+            } else {
+                _signaled = false;
+            }
 
-                while (_taskCompletionSources.Count > 0) {
-                    _taskCompletionSources.Dequeue()?.SetResult(true);
+            var taskCompletionSources = _taskCompletionSources.ToArray();
+            while (_taskCompletionSources.TryDequeue(out var ignored)) ;
+
+            foreach (var taskCompletionSource in taskCompletionSources) {
+                try {
+                    taskCompletionSource?.SetResult(true);
+                } catch {
+
                 }
             }
         }
 
         public void Cancel() {
-            lock (_taskCompletionSources) {
-                while (_taskCompletionSources.Count > 0) {
-                    _taskCompletionSources.Dequeue()?.SetCanceled();
+            var taskCompletionSources = _taskCompletionSources.ToArray();
+            while (_taskCompletionSources.TryDequeue(out var ignored)) ;
+
+            foreach (var taskCompletionSource in taskCompletionSources) {
+                try {
+                    taskCompletionSource?.SetCanceled();
+                } catch {
+
                 }
             }
         }
 
         public void SetException(Exception ex) {
-            lock (_taskCompletionSources) {
-                while (_taskCompletionSources.Count > 0) {
-                    _taskCompletionSources.Dequeue()?.SetException(ex);
+            var taskCompletionSources = _taskCompletionSources.ToArray();
+            while (_taskCompletionSources.TryDequeue(out var ignored)) ;
+
+            foreach (var taskCompletionSource in taskCompletionSources) {
+                try {
+                    taskCompletionSource?.SetException(ex);
+                } catch {
+
                 }
             }
         }

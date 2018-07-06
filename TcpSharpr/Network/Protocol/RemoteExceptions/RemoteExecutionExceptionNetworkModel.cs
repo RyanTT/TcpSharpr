@@ -9,7 +9,7 @@ namespace TcpSharpr.Network.Protocol.RemoteExceptions {
 
         public static RemoteExecutionExceptionNetworkModel FromException(Exception ex) {
             return new RemoteExecutionExceptionNetworkModel {
-                RemoteExceptionTypeName = ex.GetType().Name,
+                RemoteExceptionTypeName = ex?.GetType().Name,
                 RemoteExceptionMessage = ex.Message,
                 RemoteExceptionStack = ex.StackTrace
             };

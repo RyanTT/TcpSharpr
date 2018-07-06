@@ -14,9 +14,22 @@ namespace TcpSharpr.Testing {
             client.CommandManager.RegisterCommand("WriteToConsole", new Action<string>(Console.WriteLine));
             await client.ConnectAsync();
 
-            await client.SendAsync("BroadcastToAll", "Hallo!");
+            Console.WriteLine("/exit to exit");
 
-            Console.ReadLine();
+            while (true) {
+                string input = Console.ReadLine();
+
+                if (!string.IsNullOrEmpty(input)) {
+                    if (input.ToLower().Equals("/exit"))
+                        break;
+                    else {
+                        await client.SendAsync("BroadcastToAll", input);
+                    }
+                }
+            }
+
+            server.Stop();
+            client.Disconnect();
         }
 
         static void ServerBroadcastToAll(NetworkClient context, string message) {

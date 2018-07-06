@@ -7,7 +7,7 @@ using TcpSharpr.MethodInteraction;
 using TcpSharpr.Network;
 
 namespace TcpSharpr {
-    public class Client {
+    public class Client : INetworkSender {
         public CommandManager CommandManager { get; private set; }
         public IPEndPoint RemoteIpEndpoint { get; private set; }
         public bool ReconnectOnDisconnect { get; set; } = true;

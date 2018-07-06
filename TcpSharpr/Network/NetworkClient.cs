@@ -10,8 +10,8 @@ using TcpSharpr.Network.Protocol;
 using TcpSharpr.Threading;
 
 namespace TcpSharpr.Network {
-    public class NetworkClient {
-        public const short RECEIVE_BUFFER_SIZE = 1024;
+    public class NetworkClient : INetworkSender {
+        public const int RECEIVE_BUFFER_SIZE = 1048576; //1024;
 
         protected Socket _socket;
         protected CancellationTokenSource _parentStopTokenSource;
@@ -24,6 +24,12 @@ namespace TcpSharpr.Network {
 
         public event EventHandler<Events.ConnectedEventArgs> OnConnected;
         public event EventHandler<Events.DisconnectedEventArgs> OnDisconnected;
+
+        public MessageManager MessageManager {
+            get {
+                return _messageManager;
+            }
+        }
 
         public EndPoint Endpoint {
             get {
