@@ -79,5 +79,11 @@ namespace TcpSharpr {
                 _listeningSocket.Close();
             } catch { }
         }
+
+        public void DisconnectAll() {
+            foreach (var client in ConnectedClients) {
+                client.Disconnect();
+            }
+        }
     }
 }

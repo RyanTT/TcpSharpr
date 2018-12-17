@@ -34,7 +34,7 @@ namespace TcpSharpr {
             if (ReconnectOnConnectFailure) {
                 // Attempt connecting in a loop until asked to stop or on success
                 try {
-                    while (!await AttemptConnectAsync(true)) await Task.Delay(1000).WithCancellation(_clientCancellationToken.Token);
+                    while (!await AttemptConnectAsync(false)) await Task.Delay(1000).WithCancellation(_clientCancellationToken.Token);
                     return true;
                 } catch (OperationCanceledException) {
                     return false;
@@ -69,11 +69,11 @@ namespace TcpSharpr {
                 NetworkClient = new NetworkClient(socket, _clientCancellationToken, CommandManager);
                 NetworkClient.OnDisconnected += NetworkClient_OnDisconnected;
 
-                if (!isDedicatedContext) {
 #pragma warning disable CS4014
-                    Task.Run(() => OnNetworkClientConnected?.Invoke(this, new ConnectedEventArgs(RemoteIpEndpoint)));
+                Task.Run(() => OnNetworkClientConnected?.Invoke(this, new ConnectedEventArgs(RemoteIpEndpoint)));
 #pragma warning restore CS4014
 
+                if (!isDedicatedContext) {
                     _clientWorkerTask = Task.Run(async () => await NetworkClient.ReceiveAsync());
                 } else {
                     await NetworkClient.ReceiveAsync();
@@ -87,7 +87,7 @@ namespace TcpSharpr {
 
         private async void NetworkClient_OnDisconnected(object sender, Network.Events.DisconnectedEventArgs e) {
 #pragma warning disable CS4014
-            Task.Run(() => OnNetworkClientDisconnected(this, new DisconnectedEventArgs()));
+            Task.Run(() => OnNetworkClientDisconnected?.Invoke(this, new DisconnectedEventArgs()));
 #pragma warning restore CS4014
 
             IsConnected = false;

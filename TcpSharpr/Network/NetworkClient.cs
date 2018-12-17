@@ -94,6 +94,7 @@ namespace TcpSharpr.Network {
 
         public void Disconnect() {
             _internalStopTokenSource?.Cancel();
+            _parentStopTokenSource?.Cancel();
         }
 
         internal async Task SendInternalAsync(NetworkPacket networkPacket) {
