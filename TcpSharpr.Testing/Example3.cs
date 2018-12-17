@@ -15,6 +15,7 @@ namespace TcpSharpr.Testing {
             server.Start();
 
             Client client = new Client(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 1805));
+            client.CommandManager.RegisterCommand("TestMessage", new Action<string>(Console.WriteLine));
             await client.ConnectAsync();
 
             Console.WriteLine("ENTER to start transmission");
@@ -79,7 +80,6 @@ namespace TcpSharpr.Testing {
                 // Wait until (partial) data has been transmitted and is ready to be used
                 long dataAvailable = await segmentedNetworkStream.WaitUntilDataAvailable();
                 int bytesRead = await segmentedNetworkStream.ReadAsync(buffer, 0, buffer.Length);
-
 
                 totalBytesRead += bytesRead;
 

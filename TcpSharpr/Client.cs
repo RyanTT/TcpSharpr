@@ -5,6 +5,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using TcpSharpr.MethodInteraction;
 using TcpSharpr.Network;
+using TcpSharpr.Network.Events;
+using TcpSharpr.Threading;
 
 namespace TcpSharpr {
     public class Client : INetworkSender {
@@ -12,9 +14,12 @@ namespace TcpSharpr {
         public IPEndPoint RemoteIpEndpoint { get; private set; }
         public bool ReconnectOnDisconnect { get; set; } = true;
         public bool IsConnected { get; private set; } = false;
+        public NetworkClient NetworkClient { get; private set; }
 
-        public NetworkClient _networkClient { get; private set; }
-        private CancellationTokenSource _serverStopTokenSource;
+        public event EventHandler<ConnectedEventArgs> OnNetworkClientConnected;
+        public event EventHandler<DisconnectedEventArgs> OnNetworkClientDisconnected;
+
+        private CancellationTokenSource _clientCancellationToken;
         private Task _clientWorkerTask;
 
         public Client(IPEndPoint ipEndpoint) {
@@ -23,39 +28,43 @@ namespace TcpSharpr {
         }
 
         public async Task<bool> ConnectAsync() {
-            _serverStopTokenSource = new CancellationTokenSource();
+            _clientCancellationToken = new CancellationTokenSource();
 
             return await AttemptConnectAsync(false);
         }
 
         public void Disconnect() {
-            _serverStopTokenSource?.Cancel();
+            _clientCancellationToken?.Cancel();
         }
 
         public async Task<NetworkMessage> SendAsync(string command, params object[] args) {
-            return await _networkClient.SendAsync(command, args);
+            return await NetworkClient.SendAsync(command, args);
         }
 
         public async Task<NetworkRequest> SendRequestAsync(string command, params object[] args) {
-            return await _networkClient.SendRequestAsync(command, args);
+            return await NetworkClient.SendRequestAsync(command, args);
         }
 
         internal async Task<bool> AttemptConnectAsync(bool isDedicatedContext) {
             try {
-                if (_serverStopTokenSource != null && _serverStopTokenSource.IsCancellationRequested) {
-                    return await Task.FromResult(false);
+                if (_clientCancellationToken != null && _clientCancellationToken.IsCancellationRequested) {
+                    return false;
                 }
 
                 Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 await socket.ConnectAsync(RemoteIpEndpoint);
 
-                _networkClient = new NetworkClient(socket, _serverStopTokenSource, CommandManager);
-                _networkClient.OnDisconnected += NetworkClient_OnDisconnected;
+                NetworkClient = new NetworkClient(socket, _clientCancellationToken, CommandManager);
+                NetworkClient.OnDisconnected += NetworkClient_OnDisconnected;
 
                 if (!isDedicatedContext) {
-                    _clientWorkerTask = Task.Run(async () => await _networkClient.ReceiveAsync());
+#pragma warning disable CS4014
+                    Task.Run(() => OnNetworkClientConnected?.Invoke(this, new ConnectedEventArgs(RemoteIpEndpoint)));
+#pragma warning restore CS4014
+
+                    _clientWorkerTask = Task.Run(async () => await NetworkClient.ReceiveAsync());
                 } else {
-                    await _networkClient.ReceiveAsync();
+                    await NetworkClient.ReceiveAsync();
                 }
 
                 return IsConnected = true;
@@ -65,8 +74,17 @@ namespace TcpSharpr {
         }
 
         private async void NetworkClient_OnDisconnected(object sender, Network.Events.DisconnectedEventArgs e) {
+#pragma warning disable CS4014
+            Task.Run(() => OnNetworkClientDisconnected(this, new DisconnectedEventArgs()));
+#pragma warning restore CS4014
+
             IsConnected = false;
-            while (!await AttemptConnectAsync(true)) await Task.Delay(1000);
+
+            try {
+                while (!await AttemptConnectAsync(true)) await Task.Delay(1000).WithCancellation(_clientCancellationToken.Token);
+            } catch (OperationCanceledException ex) {
+                // Catch, consume, adapt, overcome
+            }
         }
     }
 }

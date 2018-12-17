@@ -24,6 +24,7 @@ namespace TcpSharpr.Network.Protocol {
 
             return mStream.ToArray();
         }
+
         private object BytesToObject(byte[] bytes) {
             var mStream = new MemoryStream();
             var binFormatter = new BinaryFormatter {
