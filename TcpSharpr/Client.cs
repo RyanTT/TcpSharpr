@@ -13,6 +13,7 @@ namespace TcpSharpr {
         public CommandManager CommandManager { get; private set; }
         public IPEndPoint RemoteIpEndpoint { get; private set; }
         public bool ReconnectOnDisconnect { get; set; } = true;
+        public bool ReconnectOnConnectFailure { get; set; } = false;
         public bool IsConnected { get; private set; } = false;
         public NetworkClient NetworkClient { get; private set; }
 
@@ -30,6 +31,17 @@ namespace TcpSharpr {
         public async Task<bool> ConnectAsync() {
             _clientCancellationToken = new CancellationTokenSource();
 
+            if (ReconnectOnConnectFailure) {
+                // Attempt connecting in a loop until asked to stop or on success
+                try {
+                    while (!await AttemptConnectAsync(true)) await Task.Delay(1000).WithCancellation(_clientCancellationToken.Token);
+                    return true;
+                } catch (OperationCanceledException) {
+                    return false;
+                }
+            }
+
+            // Normal attempt at connecting, no retries
             return await AttemptConnectAsync(false);
         }
 
