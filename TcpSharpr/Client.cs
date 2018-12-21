@@ -21,14 +21,17 @@ namespace TcpSharpr {
         public event EventHandler<ConnectedEventArgs> OnNetworkClientConnected;
         public event EventHandler<DisconnectedEventArgs> OnNetworkClientDisconnected;
 
-        private readonly SymmetricAlgorithm _algorithm;
+        private readonly SymmetricAlgorithm _symmetricEncryptionAlgorithm;
         private CancellationTokenSource _clientCancellationToken;
         private Task _clientWorkerTask;
 
-        public Client(IPEndPoint ipEndpoint, SymmetricAlgorithm algorithm = null) {
+        public Client(IPEndPoint ipEndpoint) {
             RemoteIpEndpoint = ipEndpoint;
-            _algorithm = algorithm;
             CommandManager = new CommandManager();
+        }
+
+        public Client(IPEndPoint ipEndpoint, SymmetricAlgorithm symmetricEncryptionAlgorithm) : this(ipEndpoint) {
+            _symmetricEncryptionAlgorithm = symmetricEncryptionAlgorithm;
         }
 
         public async Task<bool> ConnectAsync() {
@@ -69,7 +72,7 @@ namespace TcpSharpr {
                 Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 await socket.ConnectAsync(RemoteIpEndpoint);
 
-                NetworkClient = new NetworkClient(socket, _clientCancellationToken, CommandManager, _algorithm);
+                NetworkClient = new NetworkClient(socket, _clientCancellationToken, CommandManager, _symmetricEncryptionAlgorithm);
                 NetworkClient.OnDisconnected += NetworkClient_OnDisconnected;
 
 #pragma warning disable CS4014

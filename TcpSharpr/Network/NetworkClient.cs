@@ -32,12 +32,17 @@ namespace TcpSharpr.Network {
 
         public EndPoint Endpoint => _socket.RemoteEndPoint;
 
-        public NetworkClient(Socket socket, CancellationTokenSource stopTokenSource, CommandManager commandManager, SymmetricAlgorithm algorithm) {
+        public NetworkClient(Socket socket, CancellationTokenSource stopTokenSource, CommandManager commandManager, SymmetricAlgorithm encryptionAlgorithm) {
             _socket = socket;
             _parentStopTokenSource = stopTokenSource;
             _internalStopTokenSource = new CancellationTokenSource();
+            
+            if (encryptionAlgorithm == null) {
+                _packetFormatter = new PacketFormatter();
+            } else {
+                _packetFormatter = new SymmetricEncryptionPacketFormatter(encryptionAlgorithm);
+            }
 
-            _packetFormatter = new PacketFormatter(algorithm);
             _commandManager = commandManager;
             _messageManager = new MessageManager(_commandManager, this);
             _messageSerializer = new BinaryFormatterSerializer();

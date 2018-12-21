@@ -24,12 +24,11 @@ namespace TcpSharpr {
         private CancellationTokenSource _serverStopTokenSource;
         private readonly Socket _listeningSocket;
         private readonly List<NetworkClient> _connectedClients;
-        private readonly SymmetricAlgorithm _algorithm;
+        private readonly SymmetricAlgorithm _symmetricEncryptionAlgorithm;
         private Task _serverWorkerTask;
 
-        public Server(IPEndPoint ipEndpoint, SymmetricAlgorithm algorithm = null) {
+        public Server(IPEndPoint ipEndpoint) {
             ListeningIpEndpoint = ipEndpoint;
-            _algorithm = algorithm;
             CommandManager = new CommandManager();
 
             _connectedClients = new List<NetworkClient>();
@@ -37,6 +36,10 @@ namespace TcpSharpr {
             _listeningSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         }
 
+        public Server(IPEndPoint ipEndPoint, SymmetricAlgorithm symmetricEncryptionAlgorithm) : this(ipEndPoint) {
+            _symmetricEncryptionAlgorithm = symmetricEncryptionAlgorithm;
+        }
+        
         public void Start() {
             Start(_serverStopTokenSource);
         }
@@ -50,7 +53,7 @@ namespace TcpSharpr {
 
                 while (!cancellationTokenSource.IsCancellationRequested) {
                     Socket acceptedSocket = await _listeningSocket.AcceptAsync().WithCancellation(_serverStopTokenSource.Token);
-                    NetworkClient networkClient = new NetworkClient(acceptedSocket, _serverStopTokenSource, CommandManager, _algorithm);
+                    NetworkClient networkClient = new NetworkClient(acceptedSocket, _serverStopTokenSource, CommandManager, _symmetricEncryptionAlgorithm);
 
                     networkClient.RunsAt(this);
 
