@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using TcpSharpr.MethodInteraction;
@@ -10,21 +11,23 @@ using TcpSharpr.Threading;
 
 namespace TcpSharpr {
     public class Client : INetworkSender {
-        public CommandManager CommandManager { get; private set; }
-        public IPEndPoint RemoteIpEndpoint { get; private set; }
+        public CommandManager CommandManager { get; }
+        public IPEndPoint RemoteIpEndpoint { get; }
         public bool ReconnectOnDisconnect { get; set; } = true;
         public bool ReconnectOnConnectFailure { get; set; } = false;
-        public bool IsConnected { get; private set; } = false;
+        public bool IsConnected { get; private set; }
         public NetworkClient NetworkClient { get; private set; }
 
         public event EventHandler<ConnectedEventArgs> OnNetworkClientConnected;
         public event EventHandler<DisconnectedEventArgs> OnNetworkClientDisconnected;
 
+        private readonly SymmetricAlgorithm _algorithm;
         private CancellationTokenSource _clientCancellationToken;
         private Task _clientWorkerTask;
 
-        public Client(IPEndPoint ipEndpoint) {
+        public Client(IPEndPoint ipEndpoint, SymmetricAlgorithm algorithm = null) {
             RemoteIpEndpoint = ipEndpoint;
+            _algorithm = algorithm;
             CommandManager = new CommandManager();
         }
 
@@ -66,7 +69,7 @@ namespace TcpSharpr {
                 Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 await socket.ConnectAsync(RemoteIpEndpoint);
 
-                NetworkClient = new NetworkClient(socket, _clientCancellationToken, CommandManager);
+                NetworkClient = new NetworkClient(socket, _clientCancellationToken, CommandManager, _algorithm);
                 NetworkClient.OnDisconnected += NetworkClient_OnDisconnected;
 
 #pragma warning disable CS4014
