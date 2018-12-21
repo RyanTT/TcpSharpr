@@ -1,16 +1,20 @@
 ﻿using System;
 using System.Net;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using TcpSharpr.Network;
 
 namespace TcpSharpr.Testing {
     public class Example2 {
         public static async Task Run() {
-            Server server = new Server(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 1805));
+            // Normally the Key and IV would of course be set so something other than 0
+            var symmetricAlgorithm = new RijndaelManaged { Key = new byte[32], IV = new byte[16] };
+
+            Server server = new Server(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 1805), symmetricAlgorithm);
             server.CommandManager.RegisterCommand("BroadcastToAll", new Action<NetworkClient, string>(ServerBroadcastToAll));
             server.Start();
 
-            Client client = new Client(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 1805));
+            Client client = new Client(new IPEndPoint(IPAddress.Parse("127.0.0.1"), 1805), symmetricAlgorithm);
             client.CommandManager.RegisterCommand("WriteToConsole", new Action<string>(Console.WriteLine));
             await client.ConnectAsync();
 

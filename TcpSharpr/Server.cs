@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using TcpSharpr.MethodInteraction;
@@ -11,27 +12,29 @@ using TcpSharpr.Threading;
 
 namespace TcpSharpr {
     public class Server {
-        public IPEndPoint ListeningIpEndposhort { get; private set; }
+        public IPEndPoint ListeningIpEndpoint { get; private set; }
         public CommandManager CommandManager { get; private set; }
-        public NetworkClient[] ConnectedClients { get { return _connectedClients.ToArray(); } }
+
+        public bool IsRunning => !_serverStopTokenSource.IsCancellationRequested;
+        public IReadOnlyList<NetworkClient> ConnectedClients => _connectedClients;
         public EventHandler<ClientConnectedEventArgs> OnNetworkClientConnected;
         public EventHandler<ClientDisconnectedEventArgs> OnNetworkClientDisconnected;
+        public EventHandler<StatusChangedEventArgs> OnStatusChanged;
 
         private CancellationTokenSource _serverStopTokenSource;
-        private Socket _listeningSocket;
-        private List<NetworkClient> _connectedClients;
+        private readonly Socket _listeningSocket;
+        private readonly List<NetworkClient> _connectedClients;
+        private readonly SymmetricAlgorithm _algorithm;
         private Task _serverWorkerTask;
 
-        public Server(IPEndPoint ipEndposhort) {
-            ListeningIpEndposhort = ipEndposhort;
+        public Server(IPEndPoint ipEndpoint, SymmetricAlgorithm algorithm = null) {
+            ListeningIpEndpoint = ipEndpoint;
+            _algorithm = algorithm;
             CommandManager = new CommandManager();
 
             _connectedClients = new List<NetworkClient>();
-
             _serverStopTokenSource = new CancellationTokenSource();
             _listeningSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            _listeningSocket.Bind(ipEndposhort);
-            _listeningSocket.Listen(10);
         }
 
         public void Start() {
@@ -41,10 +44,13 @@ namespace TcpSharpr {
         public void Start(CancellationTokenSource cancellationTokenSource) {
             _serverWorkerTask = Task.Run(async () => {
                 _serverStopTokenSource = cancellationTokenSource;
+                _listeningSocket.Bind(ListeningIpEndpoint);
+                _listeningSocket.Listen(10);
+                OnStatusChanged?.Invoke(this, new StatusChangedEventArgs(IsRunning));
 
                 while (!cancellationTokenSource.IsCancellationRequested) {
                     Socket acceptedSocket = await _listeningSocket.AcceptAsync().WithCancellation(_serverStopTokenSource.Token);
-                    NetworkClient networkClient = new NetworkClient(acceptedSocket, _serverStopTokenSource, CommandManager);
+                    NetworkClient networkClient = new NetworkClient(acceptedSocket, _serverStopTokenSource, CommandManager, _algorithm);
 
                     networkClient.RunsAt(this);
 
@@ -74,7 +80,7 @@ namespace TcpSharpr {
 
         public void Stop() {
             _serverStopTokenSource.Cancel();
-
+            OnStatusChanged?.Invoke(this, new StatusChangedEventArgs(IsRunning));
             try {
                 _listeningSocket.Close();
             } catch { }

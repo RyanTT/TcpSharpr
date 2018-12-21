@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using TcpSharpr.MethodInteraction;
@@ -24,25 +25,19 @@ namespace TcpSharpr.Network {
 
         public event EventHandler<Events.ConnectedEventArgs> OnConnected;
         public event EventHandler<Events.DisconnectedEventArgs> OnDisconnected;
+        
+        public object Tag { get; set; }
 
-        public MessageManager MessageManager {
-            get {
-                return _messageManager;
-            }
-        }
+        public MessageManager MessageManager => _messageManager;
 
-        public EndPoint Endpoint {
-            get {
-                return _socket.RemoteEndPoint;
-            }
-        }
+        public EndPoint Endpoint => _socket.RemoteEndPoint;
 
-        public NetworkClient(Socket socket, CancellationTokenSource stopTokenSource, CommandManager commandManager) {
+        public NetworkClient(Socket socket, CancellationTokenSource stopTokenSource, CommandManager commandManager, SymmetricAlgorithm algorithm) {
             _socket = socket;
             _parentStopTokenSource = stopTokenSource;
             _internalStopTokenSource = new CancellationTokenSource();
 
-            _packetFormatter = new PacketFormatter();
+            _packetFormatter = new PacketFormatter(algorithm);
             _commandManager = commandManager;
             _messageManager = new MessageManager(_commandManager, this);
             _messageSerializer = new BinaryFormatterSerializer();
