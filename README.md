@@ -154,3 +154,7 @@ namespace TcpSharpr.Testing {
     }
 }
 ```
+
+
+## Contributions
+https://github.com/MelvinGr for fixing various things, adding useful features and adding symmetric encryption support
