@@ -18,10 +18,17 @@ namespace TcpSharpr.Testing {
             client.CommandManager.RegisterCommand("TestMessage", new Action<string>(Console.WriteLine));
             await client.ConnectAsync();
 
+            string filePath = "";
+
+            while (!File.Exists(filePath)) {
+                Console.Write("\nPlease enter a test payload file path: ");
+                filePath = Console.ReadLine();
+            }
+
             Console.WriteLine("ENTER to start transmission");
             Console.ReadLine();
 
-            FileStream fileStream = new FileStream(@"C:\Users\timet\Desktop\dotnet-sdk-2.1.201-win-x64.exe", FileMode.Open);
+            FileStream fileStream = new FileStream(filePath, FileMode.Open);
 
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
