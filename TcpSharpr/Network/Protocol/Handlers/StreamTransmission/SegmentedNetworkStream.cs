@@ -31,19 +31,19 @@ namespace TcpSharpr.Network.Protocol.Handlers.StreamTransmission {
             base.Dispose();
         }
 
-        public async Task<long> WaitUntilDataAvailable(int timeout) {
-            return await WaitUntilDataAvailable(TimeSpan.FromMilliseconds(timeout));
+        public async Task<long> WaitUntilDataAvailableAsync(int timeout) {
+            return await WaitUntilDataAvailableAsync(TimeSpan.FromMilliseconds(timeout));
         }
 
-        public async Task<long> WaitUntilDataAvailable(TimeSpan timeout) {
-            return await WaitUntilDataAvailable(new CancellationTokenSource(timeout));
+        public async Task<long> WaitUntilDataAvailableAsync(TimeSpan timeout) {
+            return await WaitUntilDataAvailableAsync(new CancellationTokenSource(timeout));
         }
 
-        public async Task<long> WaitUntilDataAvailable() {
-            return await WaitUntilDataAvailable(new CancellationTokenSource());
+        public async Task<long> WaitUntilDataAvailableAsync() {
+            return await WaitUntilDataAvailableAsync(new CancellationTokenSource());
         }
 
-        public async Task<long> WaitUntilDataAvailable(CancellationTokenSource cancellationTokenSource) {
+        public async Task<long> WaitUntilDataAvailableAsync(CancellationTokenSource cancellationTokenSource) {
             try {
                 await _newDataAvailableEvent.WaitAsync()
                     .WithCancellation(cancellationTokenSource.Token);

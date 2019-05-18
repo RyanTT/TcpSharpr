@@ -48,7 +48,7 @@ namespace TcpSharpr.Testing {
                 byte[] buffer = new byte[1048576];
 
                 // Wait until (partial) data has been transmitted and is ready to be used
-                long dataAvailable = await responseStream.WaitUntilDataAvailable();
+                long dataAvailable = await responseStream.WaitUntilDataAvailableAsync();
                 int bytesRead = await responseStream.ReadAsync(buffer, 0, buffer.Length);
 
                 totalBytesRead += bytesRead;
@@ -85,7 +85,7 @@ namespace TcpSharpr.Testing {
                 byte[] buffer = new byte[1048576];
                 
                 // Wait until (partial) data has been transmitted and is ready to be used
-                long dataAvailable = await segmentedNetworkStream.WaitUntilDataAvailable();
+                long dataAvailable = await segmentedNetworkStream.WaitUntilDataAvailableAsync();
                 int bytesRead = await segmentedNetworkStream.ReadAsync(buffer, 0, buffer.Length);
 
                 totalBytesRead += bytesRead;
